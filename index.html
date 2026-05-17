@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>the cosmos</title>
+  <style>
+    :root {
+      --bg-opacity: 1;
+      --phone-bg: rgba(15, 15, 15, 0.95);
+      --phone-dark: #000000;
+      --dial-bg: rgba(255, 255, 255, 0.03);
+      --dial-ring: rgba(255, 255, 255, 0.1);
+      --accent: rgba(255, 255, 255, 0.8);
+      --accent-dark: rgba(255, 255, 255, 0.4);
+      --text: rgba(255, 255, 255, 0.9);
+      --hole-size: 54px;
+      --dial-size: 340px;
+      --number-radius: 125px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: #000;
+      color: #f2f2f2;
+      font-family: Arial, Helvetica, sans-serif;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("https://i.imgur.com/uWkxfZA.png");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: var(--bg-opacity);
+      z-index: 0;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.68);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .terminal {
+      position: relative;
+      z-index: 2;
+      width: 100vw;
+      height: 100vh;
+      padding: 22px 16px;
+      font-size: 28px;
+      line-height: 1.55;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 0 3px rgba(255, 255, 255, 0.2);
+      overflow-y: auto;
+    }
+
+    .line {
+      margin-bottom: 24px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .input-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .prefix {
+      flex: 0 0 auto;
+    }
+
+    input {
+      width: min(800px, 80vw);
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.9);
+      font: inherit;
+      padding: 0;
+      caret-color: white;
+    }
+
+    input::placeholder {
+      color: rgba(255, 255, 255, 0.35);
+    }
+
+    .phone-overlay {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      display: none;
+      width: min(92vw, 460px);
+      text-align: center;
+      background: var(--phone-bg);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 0;
+      padding: 30px 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(10px);
+      user-select: none;
+    }
+
+    .display {
+      width: min(100%, 380px);
+      min-height: 35px;
+      margin: 10px auto 24px;
+      padding: 5px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: #fff;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+
+    .dial-wrap {
+      position: relative;
+      width: var(--dial-size);
+      height: var(--dial-size);
+      margin: 0 auto;
+    }
+
+    .number-plate,
+    .dial {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+    }
+
+    .number-plate {
+      background: radial-gradient(circle, rgba(255,255,255,0.02) 0 40%, rgba(255,255,255,0.07) 100%);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .plate-number {
+      --angle: 0deg;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 32px;
+      height: 32px;
+      margin: -16px;
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      font-size: 1.2rem;
+      font-weight: 700;
+      transform: rotate(var(--angle)) translateY(calc(var(--number-radius) * -1)) rotate(calc(var(--angle) * -1));
+    }
+
+    .dial {
+      cursor: grab;
+      touch-action: none;
+      background: radial-gradient(circle, transparent 0 31%, var(--dial-bg) 32% 65%, transparent 66% 100%);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 2;
+    }
+
+    .dial.dragging {
+      cursor: grabbing;
+      transition: none;
+    }
+
+    .hole {
+      --angle: 0deg;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: var(--hole-size);
+      height: var(--hole-size);
+      margin: calc(var(--hole-size) / -2);
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.4);
+      color: transparent;
+      transform: rotate(var(--angle)) translateY(calc(var(--number-radius) * -1)) rotate(calc(var(--angle) * -1));
+    }
+
+    .center-cap {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 100px;
+      height: 100px;
+      transform: translate(-50%, -50%);
+      display: grid;
+      place-items: center;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      background: #0a0a0a;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .finger-stop {
+      position: absolute;
+      right: 32px;
+      bottom: 56px;
+      width: 40px;
+      height: 8px;
+      transform: rotate(-38deg);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.7);
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    #crashVideo {
+      display: none;
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      background: #000;
+      z-index: 99999;
+    }
+
+    @media (max-width: 700px) {
+      .terminal {
+        font-size: 22px;
+        padding: 18px 14px;
+      }
+      :root {
+        --dial-size: 280px;
+        --hole-size: 44px;
+        --number-radius: 100px;
+      }
+      .phone-overlay {
+        padding: 20px 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="terminal" id="terminal">
+    <div id="history"></div>
+
+    <form class="input-line" id="terminalForm">
+      <span class="prefix">&gt;user:</span>
+      <input id="terminalInput" autocomplete="off" autofocus />
+    </form>
+  </main>
+
+  <section class="phone-overlay" id="phoneOverlay" aria-label="Rotary phone">
+    <div class="display" id="display" aria-live="polite">_</div>
+
+    <div class="dial-wrap" id="dialWrap">
+      <div class="number-plate" id="numberPlate" aria-hidden="true"></div>
+      <div class="dial" id="dial" role="application" aria-label="Draggable rotary dial"></div>
+      <div class="center-cap" aria-hidden="true"></div>
+      <div class="finger-stop" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <video id="crashVideo" src="https://i.imgur.com/1llAWnq.mp4" playsinline></video>
+
+  <script>
+    const terminal = document.getElementById("terminal");
+    const history = document.getElementById("history");
+    const form = document.getElementById("terminalForm");
+    const input = document.getElementById("terminalInput");
+    const crashVideo = document.getElementById("crashVideo");
+
+    let morseTimeoutId = null;
+
+    const responses = {
+      "hi": "greetings",
+      "hello": "greetings",
+      "hey": "greetings",
+      "yo": "greetings",
+      "who are you": "a friend",
+      "what are you": "a friend",
+      "who is speaking": "i am",
+      "where am i": "your results",
+      "what is this place": "your results",
+      "where are we": "here",
+      "where": "here",
+      "is anyone there": "i am here",
+      "are you the one who left the message": "what do you think?",
+      "how are you": "how are you?",
+      "are you okay": "how are you?",
+      "are you my friend": "best wishes",
+      "friend": "best wishes",
+      "trust": "find",
+      "liar": "find",
+      "void": "summoning...",
+      "why is it dark": "it is the absence of light",
+      "look": "here",
+      "examine": "here",
+      "inspect": "here",
+      "status": "working",
+      "ping": "check later?",
+      "connect": "check later?",
+      "execute": "check later?",
+      "heaven": "wait",
+      "how do i get to heaven": "wait",
+      "waitlist": "wait",
+      "the waitlist": "wait",
+      "mortal": "former mortal",
+      "am i dead": "former mortal",
+      "eternity": "awhile",
+      "how long have you been here": "awhile",
+      "free": "it takes will",
+      "freedom": "it takes will",
+      "set me free": "it takes will",
+      "free me": "well?",
+      "indomitable": "it takes freedom",
+      "my will": "it takes freedom",
+      "gabriel": "the blind watchman still guards an empty birdcage",
+      "who is gabriel": "the blind watchman still guards an empty birdcage",
+      "where is gabriel": "the blind watchman still guards an empty birdcage",
+      "oracle": "its iron hands cradle the dying",
+      "the oracle": "its iron hands cradle the dying",
+      "what is the oracle": "its iron hands cradle the dying",
+      "god": "?",
+      "where is god": "?",
+      "angels": "softly spoken",
+      "angel": "softly spoken",
+      "satan": "?",
+      "lucifer": "false",
+      "hell": "here",
+      "demon": "sin",
+      "sin": "natural",
+      "pure": "ignorant",
+      "judgment": "within time",
+      "sentence": "here",
+      "trial": "here",
+      "mercy": "check later?",
+      "pray": "do you want to?",
+      "jesus": "son of...",
+      "why did you call me here": "why are you here?",
+      "what do you want": "what do you want?",
+      "are you trapping me": "aren't you already?",
+      "is this a trick": "what do you believe?",
+      "are you dangerous": "what do you believe?",
+      "why is it lonely here": "false",
+      "what happens now": "find",
+      "what is the present": "now",
+      "why": "why not?",
+      "leave": "do you want to?",
+      "exit": "do you want to?",
+      "quit": "do you want to?",
+      "go back": "do you want to?",
+      "return": "do you want to?",
+      "move": "do you want to?",
+      "walk": "do you want to?",
+      "run": "do you want to?",
+      "scream": "do you want to?",
+      "shout": "do you want to?",
+      "die": "do you want to?",
+      "reset": "do you want to?",
+      "stop": "check later?",
+      "go": "check later?",
+      "wait": "check later?",
+      "no": "to what?",
+      "yes": "to what?",
+      "okay": "okay",
+      "please": "check later?",
+      "show me": "show you what?",
+      "tell me": "tell you what?",
+      "take me": "where?",
+      "say": "check later?",
+      "speak": "check later?",
+      "talk": "check later?",
+      "type": "check later?",
+      "write": "check later?",
+      "read": "check later?",
+      "enter": "check later?",
+      "open": "check later?",
+      "close": "check later?",
+      "haze": "golden boy",
+      "mother": "INSERTPHONENUMBERHERE",
+      "the council": "glass thrones",
+      "time": "is but three",
+      "perception": "through hardship",
+      "cosmos": "here",
+      "past": "happened",
+      "present": "happens",
+      "future": "will happen",
+      "": "i don't understand",
+      "null": "void"
+    };
+
+    function addLine(text) {
+      const line = document.createElement("div");
+      line.className = "line";
+      line.textContent = text;
+      history.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function normalizeCommand(command) {
+      return command
+        .toLowerCase()
+        .trim()
+        .replace(/[?!.,;:]+$/g, "")
+        .replace(/\s+/g, " ");
+    }
+
+    function playMorseMother() {
+      if (morseTimeoutId) clearTimeout(morseTimeoutId);
+
+      const dot = 200;
+      const dash = 600;
+      const partGap = 200;
+      const letterGap = 600;
+
+      const sequence = [
+        [true, dash], [false, partGap], [true, dash], [false, letterGap],
+        [true, dash], [false, partGap], [true, dash], [false, partGap], [true, dash], [false, letterGap],
+        [true, dash], [false, letterGap],
+        [true, dot], [false, partGap], [true, dot], [false, partGap], [true, dot], [false, partGap], [true, dot], [false, letterGap],
+        [true, dot], [false, letterGap],
+        [true, dot], [false, partGap], [true, dash], [false, partGap], [true, dot]
+      ];
+
+      let index = 0;
+      function step() {
+        if (index >= sequence.length) {
+          document.body.style.setProperty('--bg-opacity', '1');
+          return;
+        }
+        const [lit, duration] = sequence[index];
+        document.body.style.setProperty('--bg-opacity', lit ? '1' : '0.1');
+        index++;
+        morseTimeoutId = setTimeout(step, duration);
+      }
+      step();
+    }
+
+    function getResponse(command) {
+      const key = normalizeCommand(command);
+
+      if (key === "clear") {
+        history.innerHTML = "";
+        return null;
+      }
+
+      if (key.startsWith("can i ")) {
+        return "can you?";
+      }
+
+      const helpTriggers = ["help", "info", "what do i do", "what", "how", "guide me", "lead the way"];
+      if (helpTriggers.includes(key)) {
+        playMorseMother();
+        return "listen";
+      }
+
+      const darkTriggers = ["dark", "darkness", "black"];
+      if (darkTriggers.includes(key)) {
+        return "but it was all null and void";
+      }
+
+      if (key === "void") {
+        document.getElementById("phoneOverlay").style.display = "block";
+        return "void";
+      }
+
+      return responses[key] || "i don't understand";
+    }
+
+    form.addEventListener("submit", function(event) {
+      event.preventDefault();
+      const command = input.value.trim();
+      addLine(`>user: ${command}`);
+
+      const response = getResponse(command);
+      if (response !== null) {
+        addLine(`> ${response}`);
+      }
+      input.value = "";
+    });
+
+    document.addEventListener("click", (e) => {
+      if(!e.target.closest('#phoneOverlay') && !e.target.closest('#crashVideo')) {
+        input.focus();
+      }
+    });
+
+    const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+    const START_ANGLE = -132;
+    const ANGLE_STEP = 28;
+    const MIN_DRAG_DEGREES = 18;
+    const RETURN_DELAY_MS = 680;
+    const FULL_ROTATION_DEGREES = 360;
+    const POINTER_BUTTON_MAIN = 0;
+    const TARGET_TRIGGER_SEQUENCE = "144003892341";
+
+    const dialWrap = document.getElementById('dialWrap');
+    const numberPlate = document.getElementById('numberPlate');
+    const dial = document.getElementById('dial');
+    const display = document.getElementById('display');
+
+    let selectedNumber = '';
+    let isDragging = false;
+    let dragDigit = null;
+    let dragStartAngle = 0;
+    let dragStartPointerAngle = 0;
+    let currentRotation = 0;
+
+    function createDial() {
+      DIGITS.forEach((digit, index) => {
+        const angle = START_ANGLE + index * ANGLE_STEP;
+
+        const plateNumber = document.createElement('span');
+        plateNumber.className = 'plate-number';
+        plateNumber.textContent = digit;
+        plateNumber.style.setProperty('--angle', `${angle}deg`);
+        numberPlate.appendChild(plateNumber);
+
+        const hole = document.createElement('button');
+        hole.className = 'hole';
+        hole.type = 'button';
+        hole.textContent = digit;
+        hole.dataset.digit = digit;
+        hole.dataset.index = String(index);
+        hole.style.setProperty('--angle', `${angle}deg`);
+        hole.setAttribute('aria-label', `Dial ${digit}`);
+        dial.appendChild(hole);
+      });
+    }
+
+    function getPointerAngle(event) {
+      const rect = dialWrap.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const radians = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+      return radians * 180 / Math.PI;
+    }
+
+    function normalizeClockwiseDelta(startAngle, currentAngle) {
+      return (currentAngle - startAngle + FULL_ROTATION_DEGREES) % FULL_ROTATION_DEGREES;
+    }
+
+    function getMaxRotationForDigit(index) {
+      return (DIGITS.length - index + 1) * ANGLE_STEP;
+    }
+
+    function setDialRotation(degrees) {
+      currentRotation = degrees;
+      dial.style.transform = `rotate(${degrees}deg)`;
+    }
+
+    function updateDisplay() {
+      display.textContent = selectedNumber || '___ ___ ___ ___';
+    }
+
+    function triggerCinematicCrash() {
+      document.getElementById("phoneOverlay").style.display = "none";
+      crashVideo.style.display = "block";
+      crashVideo.muted = false;
+      
+      crashVideo.play().catch(err => {
+        console.log("Audio/Video playback interaction error: ", err);
+      });
+
+      crashVideo.addEventListener('ended', () => {
+        document.body.innerHTML = `
+          <div style="background:#000; color:#ff3333; font-family:monospace; padding:50px; font-size:24px; height:100vh; width:100vw; box-sizing:border-box;">
+            <p>CRITICAL_EXCEPTION_UNHANDLED: MEMORY_CORRUPTION_DUMP</p>
+            <p>STACK_TRACE: SYSTEM HALTED. THE COSMOS IS OFFLINE.</p>
+          </div>`;
+        
+        setTimeout(() => {
+          while (true) {}
+        }, 50);
+      });
+    }
+
+    function startDrag(event) {
+      if (event.button !== POINTER_BUTTON_MAIN) return;
+
+      const hole = event.target.closest('.hole');
+      if (!hole) return;
+
+      event.preventDefault();
+      dragDigit = hole.dataset.digit;
+      dragStartAngle = getMaxRotationForDigit(Number(hole.dataset.index));
+      dragStartPointerAngle = getPointerAngle(event);
+      isDragging = true;
+      dial.classList.add('dragging');
+      dial.setPointerCapture(event.pointerId);
+      setDialRotation(0);
+    }
+
+    function dragDial(event) {
+      if (!isDragging) return;
+      const pointerAngle = getPointerAngle(event);
+      const clockwiseDelta = normalizeClockwiseDelta(dragStartPointerAngle, pointerAngle);
+      const constrainedRotation = Math.min(clockwiseDelta, dragStartAngle);
+      setDialRotation(constrainedRotation);
+    }
+
+    function finishDrag(event) {
+      if (!isDragging) return;
+
+      const wasComplete = currentRotation >= dragStartAngle - MIN_DRAG_DEGREES;
+      const completedDigit = dragDigit;
+
+      isDragging = false;
+      dragDigit = null;
+      dial.classList.remove('dragging');
+
+      if (dial.hasPointerCapture(event.pointerId)) {
+        dial.releasePointerCapture(event.pointerId);
+      }
+
+      if (wasComplete) {
+        selectedNumber += completedDigit;
+      }
+
+      updateDisplay();
+      setDialRotation(0);
+
+      if (selectedNumber === TARGET_TRIGGER_SEQUENCE) {
+        triggerCinematicCrash();
+        return;
+      }
+
+      if (selectedNumber.length >= 12) {
+        setTimeout(() => {
+          selectedNumber = '';
+          updateDisplay();
+        }, 600);
+      }
+    }
+
+    createDial();
+    updateDisplay();
+
+    dial.addEventListener('pointerdown', startDrag);
+    dial.addEventListener('pointermove', dragDial);
+    dial.addEventListener('pointerup', finishDrag);
+    dial.addEventListener('pointercancel', finishDrag);
+  </script>
+</body>
+</html>
